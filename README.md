@@ -7,11 +7,13 @@
 [//]: # (3. ./venv/bien/ale-import-roms ./../../roms)
 
 # Reload requirements.txt
-/home/fabian/Documents/Nottingham/DesignIA/Project/venv/bin/pip3 freeze > ~/Documents/Nottingham/DesignIA/Project/requirements.txt
+/home/fabian/Documents/Nottingham/DesignIA/RL-Project-Pong/venv/bin/pip3 freeze > ~/Documents/Nottingham/DesignIA/RL-Project-Pong/requirements.txt
 
 # Install packages
 /home/fabian/Documents/Nottingham/DesignIA/Project/venv/bin/pip3 install tensorflow-gpu
 
 
 # Cuda package for TF
-sudo apt install nvidia-cuda-toolkit
+1. sudo apt install nvidia-cuda-toolkit
+2. Install Cuda https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html
+3. https://www.tensorflow.org/install/gpu
