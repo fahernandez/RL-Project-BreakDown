@@ -3,3 +3,4 @@ gym~=0.22.0
 tensorflow~=2.4.1
 tensorflow-gpu~=2.8.0
 matplotlib~=3.5.1
+h5py~=3.6.0
