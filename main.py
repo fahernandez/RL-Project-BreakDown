@@ -9,6 +9,9 @@ import numpy as np
 import gym
 import tensorflow as tf
 from matplotlib import pyplot as plt
+from tensorflow.python.keras.saving import hdf5_format
+import h5py
+import gc
 
 # Verify GPU devices
 local_device_protos = tf.config.list_physical_devices('GPU')
@@ -26,29 +29,33 @@ L2_REG = 1e-4
 DECAY_RATE = 0.99  # decay factor for RMSProp leaky sum of grad^2
 PIXELS_NUM = 6000
 HIDDEN_UNITS = 100
-BATCH_SIZE = 1   # Batch size for mini-batch gradient decent
 EPISODE_POINTS = 3  # Each episode is defined by a fix amount of points.
 FRAME_SKIP = 5  # Each n frames the play screen will be sampled
-EPISODES = 10000  # Episodes to be played
+EPISODES = 20000  # Episodes to be played
 RENDER_TYPE = 'human'  # None | human | rgb_array
 MOVE_DOWN = 3
 MOVE_UP = 2
 ACTION_SPACE = np.array([MOVE_UP, MOVE_DOWN])  # Amount of available actions
+RESUME = True  # Resume execution from last point
 # End
 
 
 class PongGame:
     def __init__(self, policy_network ):
+        # Initialize variables
+        self._game_frames = []
+        self._gradients = []
+        self._action_probabilities = []
+        self._rewards = []
+
         # Initialize the game
         self._env = gym.make(
             'ALE/Pong-v5',
-            # 'ALE/Breakout-v5',
             obs_type='rgb',           # ram | rgb | grayscale/Observation return type
             frameskip=FRAME_SKIP,     # frame skip/Amount of frames to wait for getting a frame sample
             render_mode=RENDER_TYPE)  # None | human | rgb_array//Don't need to be modified
 
         self._policy_network = policy_network
-        self._total_rewards = []
         self._reset()
 
     def play(self):
@@ -56,7 +63,9 @@ class PongGame:
 
         # Play
         game_frame = self._env.reset()
-        for i_episode in range(EPISODES):
+        # A clean episode starts at zero so the first episode will be +1
+        # We save completed episodes so the next episode will be +1
+        for i_episode in range(self._policy_network.get_episode()+1, EPISODES):
             points = 0  # Points in the episode
 
             # Each episode is made of n points
@@ -79,23 +88,31 @@ class PongGame:
                 # Update the game frame
                 game_frame = new_game_frame
 
-            # For each completed episode
-            print('Episode {}'.format(i_episode+1))
-            self._total_rewards.append(points)
+                # Delete variables (there is a memory leak problem, I'm exploring causes)
+                del new_game_frame
+                del reward
 
-            # 5. Update the policy after the episodes finishes-Use Mini batches updates
-            if i_episode % BATCH_SIZE == 0:
-                print('Updating weights on episode {}'.format(i_episode+1))
-                self._policy_network.update_policy(
-                    self._gradients,
-                    self._game_frames,
-                    self._action_probabilities,
-                    self._rewards)
-                # Reset the game dynamics
-                self._reset()
+
+            # For each completed episode
+            print('Episode {}'.format(i_episode))
+
+            # 5. Update the policy after the episodes finishes
+            self._policy_network.update_policy(
+                self._gradients,
+                self._game_frames,
+                self._action_probabilities,
+                self._rewards,
+                i_episode)
+
+            # Reset the game dynamics
+            self._reset()
 
             # 6. Reset the Game for the next episode
             game_frame = self._env.reset()
+
+            # Call the garbage collector to reduce memory consumption
+            # https://groups.google.com/g/h5py/c/_a35vzQzRrg?pli=1
+            gc.collect()
 
     def _record_dynamics(self, game_frame, action, action_probability, reward):
         """
@@ -112,7 +129,16 @@ class PongGame:
         self._rewards.append(reward)
         self._action_probabilities.append(action_probability)
 
+        # Delete variables (there is a memory leak problem, I'm exploring causes)
+        del encoded_action
+
     def _reset(self):
+        # Delete variables (there is a memory leak problem, I'm exploring causes)
+        del self._game_frames
+        del self._gradients
+        del self._action_probabilities
+        del self._rewards
+
         """ Reset the game dynamic after each episode"""
         self._game_frames = []
         self._gradients = []
@@ -161,7 +187,7 @@ class PongGame:
         # plt.show()
 
         # Safe kipping the image pre-processing process
-        assert len(np.unique(game_frame)) <= 4
+        # assert len(np.unique(game_frame)) <= 4
 
         game_frame[game_frame != 0] = 1  # everything else (paddles, ball) just set to 1.
 
@@ -181,32 +207,68 @@ class PongGame:
 
 
 class PolicyNetwork(tf.keras.Model):
-    def __init__(self):
+    def __init__(self, name, resume):
         super(PolicyNetwork, self).__init__()
-        # Define the Network Arquitecture
-        self.model = tf.keras.Sequential([
-            tf.keras.layers.Dense(
-                HIDDEN_UNITS,
-                activation='relu',
-                kernel_regularizer=tf.keras.regularizers.l1_l2(l1=L1_REG, l2=L2_REG),
-                kernel_initializer=tf.keras.initializers.GlorotUniform()
-            ),
-            tf.keras.layers.Dense(
-                len(ACTION_SPACE),
-                activation="softmax",
-                kernel_regularizer=tf.keras.regularizers.l1_l2(l1=L1_REG, l2=L2_REG),
-                kernel_initializer=tf.keras.initializers.GlorotUniform()
+        self._name = name
+
+        # Load the model on resume
+        if resume:
+            with h5py.File(self._get_store_path(), mode='r') as f:
+                self._episode = f.attrs['episode']
+                self._total_rewards = f.attrs['total_rewards']
+                self._model = hdf5_format.load_model_from_hdf5(f)
+
+                print("Loading Policy Network model trained on episode {}".format(self._episode))
+
+                # Closed the file to free memory
+                f.close()
+
+        else:
+            self._episode = 0
+            self._total_rewards = np.array([])
+
+            # Define the Network Architecture
+            self._model = tf.keras.Sequential([
+                tf.keras.layers.Dense(
+                    HIDDEN_UNITS,
+                    activation='relu',
+                    kernel_regularizer=tf.keras.regularizers.l1_l2(l1=L1_REG, l2=L2_REG),
+                    kernel_initializer=tf.keras.initializers.GlorotUniform()
+                ),
+                tf.keras.layers.Dense(
+                    len(ACTION_SPACE),
+                    activation="softmax",
+                    kernel_regularizer=tf.keras.regularizers.l1_l2(l1=L1_REG, l2=L2_REG),
+                    kernel_initializer=tf.keras.initializers.GlorotUniform()
+                )
+            ])
+
+            # output shape is according to the number of action
+            # The softmax function outputs a probability distribution over the actions
+            self._model.compile(
+                loss="categorical_crossentropy",
+                optimizer=tf.keras.optimizers.RMSprop(LR, decay=DECAY_RATE)
             )
-        ])
 
-        # output shape is according to the number of action
-        # The softmax function outputs a probability distribution over the actions
-        self.model.compile(
-            loss="categorical_crossentropy",
-            optimizer=tf.keras.optimizers.RMSprop(LR, decay=DECAY_RATE)
-        )
+            print("Creating a new Policy Network model....")
 
-    def update_policy(self, gradients, game_frames, action_probabilities, rewards):
+    def get_episode(self):
+        return self._episode
+
+    def save(self):
+        """Save the model for fail over recovery"""
+        with h5py.File(self._get_store_path(), mode='w') as f:
+            hdf5_format.save_model_to_hdf5(self._model, f)
+            f.attrs['episode'] = self._episode
+            f.attrs['total_rewards'] = self._total_rewards
+
+            # Close the file to free memtory
+            f.close()
+
+    def _get_store_path(self):
+        return './model/agent-{}'.format(self._name)
+
+    def update_policy(self, gradients, game_frames, action_probabilities, rewards, episode):
         """
         Updates the policy network using the NN model.
         This function is used after the MC sampling is done - following
@@ -214,8 +276,19 @@ class PolicyNetwork(tf.keras.Model):
         :param gradients: Prediction discrepancies
         :param game_frames: Game state
         :param action_probabilities: Action probabilities
-        :param rewards: Reward perceived by the agend interaction
+        :param rewards: Reward perceived by the agent interaction
+        :param episode: Episode executed
         """
+        # Store the actual episode and the accumulated sum of rewards on the episode
+        self._episode = episode
+        self._total_rewards = np.append(self._total_rewards, np.sum(rewards))
+
+        print('Updating weights on episode {}, rewards {}, mean {}, size {}'.format(
+            self._episode,
+            self._total_rewards[-1],
+            np.mean(self._total_rewards),
+            np.size(self._total_rewards)
+        ))
 
         # get X
         game_frames = np.vstack(game_frames)
@@ -228,9 +301,15 @@ class PolicyNetwork(tf.keras.Model):
         # This is the policy correction based on the environment feedback
         gradients = ALPHA_LR*np.vstack([gradients]) + action_probabilities
 
-        history = self.model.train_on_batch(game_frames, gradients)
+        self._model.train_on_batch(game_frames, gradients)
 
-        return history
+        # Save the model after each update
+        self.save()
+
+        # Delete variables (there is a memory leak problem, I'm exploring causes)
+        del game_frames
+        del gradients
+        del discounted_rewards
 
     def produce_action(self, game_image_frame):
         """
@@ -239,7 +318,7 @@ class PolicyNetwork(tf.keras.Model):
         :return: action to execute, probability distribution for all the actions
         """
         # get action probably
-        action_probability = self.model.predict(
+        action_probability = self._model.predict(
             game_image_frame.reshape((-1, game_image_frame.size))
         ).flatten()
 
@@ -278,8 +357,11 @@ class PolicyNetwork(tf.keras.Model):
         norm_discounted_rewards = (
             discounted_reward - mean_rewards)/(std_rewards+1e-7)  # avoiding zero div
 
+        # Delete variables (there is a memory leak problem, I'm exploring causes)
+        del discounted_reward
+
         return norm_discounted_rewards
 
 
-policy_network = PolicyNetwork()
+policy_network = PolicyNetwork('agent-1', RESUME)
 PongGame(policy_network).play()

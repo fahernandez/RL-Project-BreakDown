@@ -17,3 +17,6 @@
 1. sudo apt install nvidia-cuda-toolkit
 2. Install Cuda https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html
 3. https://www.tensorflow.org/install/gpu
+
+# Solution to display drivers
+1. https://askubuntu.com/questions/1352158/libgl-error-failed-to-load-drivers-iris-and-swrast-in-ubuntu-20-04
