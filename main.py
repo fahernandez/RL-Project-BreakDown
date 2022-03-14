@@ -23,7 +23,7 @@ if len(local_device_protos):
         print("Executing with device type {}, name {}".format(device.device_type, device.name))
 
 RESUME = False  # Resume execution from last point
-RENDER_TYPE = 'human'  # None | human | rgb_array
+RENDER_TYPE = 'rgb_array'  # None | human | rgb_array
 
 exp1 = ModelExperiment1(1)
 BreakoutGame(exp1, RESUME, RENDER_TYPE).play()

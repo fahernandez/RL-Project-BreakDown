@@ -31,11 +31,19 @@ class BreakoutGame:
         self.__rewards = []
 
         # Initialize the game
-        self._env = gym.make(
+        self.__env = gym.make(
             'Breakout-v0',
             obs_type='rgb',             # ram | rgb | grayscale/Observation return type
             frameskip=self.FRAME_SKIP,  # frame skip/Amount of frames to wait for getting a frame sample
             render_mode=render_type)    # None | human | rgb_array
+
+        self.__env = self.__env.unwrapped
+
+        # Policy gradient has high variance, seed for reproducability
+        self.__env.seed(1)
+
+        print("env.action_space", self.__env.action_space)
+        print("env.meaning", self.__env.get_action_meanings())
 
         # Initialize the NN model
         self.__policy_network = policy_network
@@ -54,9 +62,9 @@ class BreakoutGame:
             done = False
 
             # Restart the game and kick the ball
-            self._env.reset()
+            self.__env.reset()
             # Action 1 is fire on the Breakout game
-            game_frame, _, _, game_state = self._env.step(1)
+            game_frame, _, _, game_state = self.__env.step(1)
             # We are getting negatives rewards for each time the agent lost a ball
             actual_lives = game_state['lives']
 
@@ -69,7 +77,7 @@ class BreakoutGame:
                 action, action_probability = self.__policy_network.produce_action(game_frame)
 
                 # 3. Interact with the environment by executing the action
-                new_game_frame, reward, done, game_state = self._env.step(action)
+                new_game_frame, reward, done, game_state = self.__env.step(action)
 
                 # 4. Add a negative reward by losing lives (In case it happened)
                 new_lives = game_state['lives']

@@ -65,9 +65,10 @@ class PolicyNetwork(tf.keras.Model):
         game_frames = np.vstack(game_frames)
 
         # get Y
-        gradients = np.vstack(gradients)
         rewards = np.vstack(rewards)
         discounted_rewards = self.__get_discount_rewards(rewards)
+
+        gradients = np.vstack(gradients)
         gradients *= discounted_rewards
         # This is the policy correction based on the environment feedback
         gradients = self.__alpha_lr*np.vstack([gradients]) + action_probabilities
@@ -108,12 +109,13 @@ class PolicyNetwork(tf.keras.Model):
         :return: Sequence of discounted rewards per state and action
         """
         discounted_reward = np.zeros_like(reward)
-        running_add = 0
+        cumulative = 0
         for t in reversed(range(0, len(reward))):
-            if reward[t] != 0:
-                running_add = 0  # reset the sum, since this was a game boundary (pong specific!)
-            running_add = running_add * self.__reward_discount_factor_gamma + reward[t]
-            discounted_reward[t] = running_add
+            # Reward -1 is given when a life is missed in the game
+            if reward[t] == -1:
+                cumulative = 0  # reset the sum, since this was a game boundary (the ball is out of the game)
+            cumulative = cumulative * self.__reward_discount_factor_gamma + reward[t]
+            discounted_reward[t] = cumulative
 
         # normalize discounted rewards
         mean_rewards = np.mean(discounted_reward)
@@ -186,7 +188,7 @@ class PolicyNetwork(tf.keras.Model):
                 f.close()
 
     def __get_store_path(self):
-        return './execution/{}/{}/'.format(self.__name, self.__execution_number)
+        return './execution/exp_{}/exec_{}/'.format(self.__name, self.__execution_number)
 
     def get_episode(self):
         return self.__episode
