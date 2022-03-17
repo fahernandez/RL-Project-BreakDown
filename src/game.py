@@ -25,10 +25,9 @@ class BreakoutGame:
 
     def __init__(self, policy_network, resume, render_type):
         # Initialize variables
-        self.__game_frames = []
-        self.__gradients = []
-        self.__action_probabilities = []
-        self.__rewards = []
+        self.__state_memory = []
+        self.__action_memory = []
+        self.__reward_memory = []
 
         # Initialize the game
         self.__env = gym.make(
@@ -48,7 +47,7 @@ class BreakoutGame:
         # Initialize the NN model
         self.__policy_network = policy_network
         self.__policy_network.set_action_space(self.ACTION_SPACE)
-        self.__policy_network.load(resume)
+        self.__policy_network.load(resume, self.PIXELS_NUM)
 
         # Reset the game prior starting (This will clean prior states)
         self.__reset()
@@ -74,7 +73,7 @@ class BreakoutGame:
                 game_frame, prev_game_frame = self.__pre_process_image(game_frame, prev_game_frame)
 
                 # 2. Produce an action following the Policy function
-                action, action_probability = self.__policy_network.produce_action(game_frame)
+                action = self.__policy_network.produce_action(game_frame)
 
                 # 3. Interact with the environment by executing the action
                 new_game_frame, reward, done, game_state = self.__env.step(action)
@@ -86,7 +85,7 @@ class BreakoutGame:
                 actual_lives = new_lives
 
                 # 5. Store the state, value, action and reward taken in this step
-                self.__record_dynamics(game_frame, action, action_probability, reward)
+                self.__record_dynamics(game_frame, action, reward)
 
                 # Update the actual game frame
                 game_frame = new_game_frame
@@ -98,10 +97,9 @@ class BreakoutGame:
 
             # 5. Update the policy after the episodes finishes
             self.__policy_network.update_policy(
-                self.__gradients,
-                self.__game_frames,
-                self.__action_probabilities,
-                self.__rewards,
+                self.__state_memory,
+                self.__action_memory,
+                self.__reward_memory,
                 i_episode)
 
             # 6. Reset the Game dynamics for the next episode
@@ -111,59 +109,28 @@ class BreakoutGame:
             # https://groups.google.com/g/h5py/c/_a35vzQzRrg?pli=1
             gc.collect()
 
-    def __record_dynamics(self, game_frame, action, action_probability, reward):
+    def __record_dynamics(self, game_frame, action, reward):
         """
         Store the sequence of state, actions and values for the actual episode
 
         :param game_frame: Game state
         :param action: Action taken
-        :param action_probability: Action probabilities
-        :param reward: Reward perceived by the agend interaction
+        :param reward: Reward perceived by the agent interaction
         """
-        encoded_action = self.__hot_encode_action(action)
-        self.__gradients.append(encoded_action-action_probability)
-        self.__game_frames.append(game_frame)
-        self.__rewards.append(reward)
-        self.__action_probabilities.append(action_probability)
-
-        # Delete variables (there is a memory leak problem, I'm exploring causes)
-        del encoded_action
+        self.__state_memory.append(game_frame)
+        self.__reward_memory.append(reward)
+        self.__action_memory.append(action)
 
     def __reset(self):
         """ Reset the game dynamic after each episode"""
         # Delete variables (there is a memory leak problem, I'm exploring causes)
-        del self.__game_frames
-        del self.__gradients
-        del self.__action_probabilities
-        del self.__rewards
+        del self.__state_memory
+        del self.__action_memory
+        del self.__reward_memory
 
-        self.__game_frames = []
-        self.__gradients = []
-        self.__action_probabilities = []
-        self.__rewards = []
-
-    def __hot_encode_action(self, action):
-        """
-        Encoding the actions into a binary list where only the action taken has a value.
-        The policy network has two outputs so this weights just the output of the action executed
-
-        :param: Encode the action to use them while updating the weights
-        """
-
-        action_encoded = np.zeros(len(self.ACTION_SPACE), np.float32)
-        if action == self.NOOP:
-            action_encoded[0] = 1
-
-        if action == self.FIRE:
-            action_encoded[1] = 1
-
-        if action == self.MOVE_RIGHT:
-            action_encoded[2] = 1
-
-        if action == self.MOVE_LEFT:
-            action_encoded[3] = 1
-
-        return action_encoded
+        self.__state_memory = []
+        self.__action_memory = []
+        self.__reward_memory = []
 
     def __pre_process_image(self, game_frame, prev_game_frame):
         """

@@ -6,13 +6,12 @@ from src.model import PolicyNetwork
 import tensorflow as tf
 
 
-class ModelExperiment1(PolicyNetwork):
-    # Nodes in the hidden layer
-    HIDDEN_UNITS = 100
-    NAME = '1'
+class ModelExperiment4(PolicyNetwork):
+    NAME = '4'
+    HIDDEN_UNITS = 20
 
     def __init__(self, execution_number):
-        super(ModelExperiment1, self).__init__(self.NAME, execution_number)
+        super(ModelExperiment4, self).__init__(self.NAME, execution_number)
 
     def load(self, resume, input_dim):
         """
@@ -27,6 +26,29 @@ class ModelExperiment1(PolicyNetwork):
         # Load the Network Architecture
         model = tf.keras.Sequential([
             tf.keras.layers.Input(shape=(input_dim,)),
+            tf.keras.layers.Reshape((70, 72, 1)),
+            tf.keras.layers.Conv2D(
+                filters=10,
+                kernel_size=12,
+                padding='same',
+                activation='relu',
+                strides=(3, 3),
+            ),
+            tf.keras.layers.Conv2D(
+                filters=20,
+                kernel_size=6,
+                padding='same',
+                activation='relu',
+                strides=(2, 2)
+            ),
+            tf.keras.layers.Conv2D(
+                filters=40,
+                kernel_size=3,
+                padding='same',
+                activation='relu',
+                strides=(1, 1)
+            ),
+            tf.keras.layers.Flatten(),
             tf.keras.layers.Dense(
                 self.HIDDEN_UNITS,
                 activation='relu',
@@ -42,3 +64,4 @@ class ModelExperiment1(PolicyNetwork):
         ])
 
         self.set_model(model, self.NAME)
+
