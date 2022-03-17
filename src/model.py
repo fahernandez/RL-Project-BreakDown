@@ -124,16 +124,12 @@ class PolicyNetwork(tf.keras.Model):
         :return: Sequence of discounted rewards per state and action
         """
         discounted_reward = np.zeros_like(rewards)
-        for t in range(len(rewards)):
-            g_sum = 0
-            discount = 1
-            for k in range(t, len(rewards)):
-                # Reward -1 is given when a life is missed in the game
-                if rewards[t] == -1:
-                    g_sum = 0  # reset the sum, since this was a game boundary (the ball is out of the game)
-                g_sum += rewards[k] * discount
-                discount *= self.__reward_discount_factor_gamma
-            discounted_reward[t] = g_sum
+        running_add = 0
+        for t in reversed(range(0, len(rewards))):
+            if rewards[t] != 0:
+                running_add = 0  # reset the sum, since this was a game boundary (pong specific!)
+            running_add = running_add * self.__reward_discount_factor_gamma + rewards[t]
+            discounted_reward[t] = running_add
 
         # normalize discounted rewards
         mean_rewards = np.mean(discounted_reward)
