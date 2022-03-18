@@ -1,6 +1,6 @@
 """
 Experiment 1
-Description:
+Description: NN with 100 hidden units
 """
 from src.model import PolicyNetwork
 import tensorflow as tf
@@ -8,7 +8,7 @@ import tensorflow as tf
 
 class ModelExperiment1(PolicyNetwork):
     # Nodes in the hidden layer
-    HIDDEN_UNITS = 100
+    HIDDEN_UNITS = 200
     NAME = '1'
 
     def __init__(self, execution_number):
@@ -40,5 +40,7 @@ class ModelExperiment1(PolicyNetwork):
                 kernel_initializer=tf.keras.initializers.GlorotUniform()
             )
         ])
+
+        print(model.summary())
 
         self.set_model(model, self.NAME)

@@ -11,7 +11,7 @@ import os
 
 class PolicyNetwork(tf.keras.Model):
     # Neural network parameters-Less prompt to change (more standard)
-    LR = 1e-2  # Weights Learning Rate
+    LR = 1e-4  # Weights Learning Rate
     L1_REG = 1e-4
     L2_REG = 1e-4
 
@@ -19,8 +19,11 @@ class PolicyNetwork(tf.keras.Model):
     REWARD_DISCOUNT_FACTOR_GAMMA = 0.99  # discount factor for rewards following a trayectory
 
     # Internal dynamics variables
-    MODEL_STORAGE_NAME = 'latest'  # Name used to save the model after each weights updated
+    MODEL_STORAGE_NAME = 'latest.h5'  # Name used to save the model after each weights updated
     MODEL_CHECKPOINT_AT = 5000  # Defines how many episodes a version of the model will be stored
+    MODEL_TOTAL_REWARD_NAME = 'total_reward.npy'
+    MODEL_EPISODE_NAME = 'episode.npy'
+    MODEL_FAILOVER_CHECKPOINT = 10
 
     def __init__(self, name, execution_number):
         """
@@ -88,8 +91,10 @@ class PolicyNetwork(tf.keras.Model):
         gradient = tape.gradient(loss, self.__model.trainable_variables)
         self.__model.optimizer.apply_gradients(zip(gradient, self.__model.trainable_variables))
 
-        # Save the model after each update
-        self.__save(episode)
+        # Save the model after n updates
+        if episode % self.MODEL_FAILOVER_CHECKPOINT == 0 and episode != 0:
+            print('Saving model for fail-over recovery')
+            self.__save(episode)
 
         # Delete variables (there is a memory leak problem, I'm exploring causes)
         del state_memory
@@ -151,23 +156,25 @@ class PolicyNetwork(tf.keras.Model):
             print("Model initialized from blank state")
             return False
 
-        model_name = self.__get_store_path() + self.MODEL_STORAGE_NAME
+        path = self.__get_store_path()
+        model_name = path + self.MODEL_STORAGE_NAME
         if not os.path.exists(model_name):
             print("Requested model {} doesn't exist. Model initialized from blank state".format(model_name))
             return False
 
         with h5py.File(model_name, mode='r') as f:
-            self.__episode = f.attrs['episode']
-            # self.__total_rewards = f.attrs['total_rewards']
             self.__model = hdf5_format.load_model_from_hdf5(f)
-
-            print("Loading Policy Network model {} trained on episode {}".format(
-                model_name,
-                self.__episode
-            ))
 
             # Closed the file to free memory
             f.close()
+
+        self.__episode = np.load(path + self.MODEL_EPISODE_NAME)[0]
+        self.__total_rewards = np.load(path + self.MODEL_TOTAL_REWARD_NAME)
+
+        print("Loading Policy Network model {} trained on episode {}".format(
+            model_name,
+            self.__episode
+        ))
 
         return self.__model is not None
 
@@ -183,23 +190,29 @@ class PolicyNetwork(tf.keras.Model):
         model_name = path + self.MODEL_STORAGE_NAME
         with h5py.File(model_name, mode='w') as f:
             hdf5_format.save_model_to_hdf5(self.__model, f)
-            f.attrs['episode'] = self.__episode
-            f.attrs['total_rewards'] = self.__total_rewards
 
             # Close the file to free memtory
             f.close()
 
+        # Save the episode and the total reward achieved
+        np.save(path + self.MODEL_EPISODE_NAME, np.array([self.__episode]))
+        np.save(path + self.MODEL_TOTAL_REWARD_NAME, self.__total_rewards)
+
         # Save the model by stages for latter review
         if episode % self.MODEL_CHECKPOINT_AT == 0 and episode != 0:
-            model_name = path + str(episode)
+            model_name = path + str(episode) + '.h5'
             print("Saving mode checkpoint at episode {} and path".format(episode, model_name))
             with h5py.File(model_name, mode='w') as f:
                 hdf5_format.save_model_to_hdf5(self.__model, f)
-                f.attrs['episode'] = self.__episode
-                f.attrs['total_rewards'] = self.__total_rewards
 
                 # Close the file to free memory
                 f.close()
+
+            # Save the rewards perceived to that moment
+            np.save(
+                path + str(episode) + '-' + self.MODEL_TOTAL_REWARD_NAME,
+                self.__total_rewards
+            )
 
     def __get_store_path(self):
         return './execution/exp_{}/exec_{}/'.format(self.__name, self.__execution_number)

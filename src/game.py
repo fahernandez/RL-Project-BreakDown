@@ -5,9 +5,12 @@ Solution based on:
     2. https://github.com/omkarv/pong-from-pixels/blob/master/pong-from-pixels.py
     3. https://medium.com/swlh/policy-gradient-reinforcement-learning-with-keras-57ca6ed32555
 """
+import time
+
 import numpy as np
 import gym
 import gc
+import matplotlib.pyplot as plt
 
 
 class BreakoutGame:
@@ -19,9 +22,9 @@ class BreakoutGame:
     ACTION_SPACE = np.array([NOOP, FIRE, MOVE_RIGHT, MOVE_LEFT])  # Amount of available actions
 
     # Game configuration
-    FRAME_SKIP = 5  # Each n frames the play screen will be sampled
+    FRAME_SKIP = 4  # Each n frames the play screen will be sampled
     EPISODES = 10000  # Episodes to be played
-    PIXELS_NUM = 5040
+    PIXELS_NUM = 6400
 
     def __init__(self, policy_network, resume, render_type):
         # Initialize variables
@@ -31,15 +34,15 @@ class BreakoutGame:
 
         # Initialize the game
         self.__env = gym.make(
-            'Breakout-v0',
-            obs_type='rgb',             # ram | rgb | grayscale/Observation return type
+            'ALE/Breakout-v5',
+            obs_type='grayscale',       # ram | rgb | grayscale/Observation return type
             frameskip=self.FRAME_SKIP,  # frame skip/Amount of frames to wait for getting a frame sample
-            render_mode=render_type)    # None | human | rgb_array
-
-        self.__env = self.__env.unwrapped
+            render_mode=render_type     # None | human | rgb_array
+        )
+        # self.__env = self.__env.unwrapped
 
         # Policy gradient has high variance, seed for reproducability
-        self.__env.seed(1)
+        # self.__env.seed(1)
 
         print("env.action_space", self.__env.action_space)
         print("env.meaning", self.__env.get_action_meanings())
@@ -59,7 +62,6 @@ class BreakoutGame:
         # We save completed episodes so the next episode will be +1
         for i_episode in range(self.__policy_network.get_episode()+1, self.EPISODES):
             done = False
-
             # Restart the game and kick the ball
             self.__env.reset()
             # Action 1 is fire on the Breakout game
@@ -141,16 +143,13 @@ class BreakoutGame:
         :param prev_game_frame: Previous image free
         :return: 6000 (75x80) 1D float vector
         """
-        # Convert Image to gray scale (Matlab formula)
-        r, g, b = game_frame[:, :, 0], game_frame[:, :, 1], game_frame[:, :, 2]
-        game_frame = 0.2989 * r + 0.5870 * g + 0.1140 * b
-        game_frame = np.around(game_frame)
 
         # crop to reduce redundant parts of image (i.e. after ball passes paddle)
-        game_frame = game_frame[55:195, 8:151]  # Don't cut anything in Y. Y completely is where the game happends
+        game_frame = game_frame[50:209]  # Don't cut anything in Y. Y completely is where the game happends
         game_frame = game_frame[::2, ::2]  # down sample the image
         game_frame[game_frame == 142.0] = 0  # erase background 1
         game_frame[game_frame == 127.0] = 0  # erase background 2
+        game_frame[:, 76:80] = 0  # Remove the residual at the end of the screen
 
         # plt.imshow(game_frame, interpolation='nearest')
         # plt.show()
@@ -160,6 +159,8 @@ class BreakoutGame:
         # This trick allows discarding previous game history because we observe movement
         game_frame = current_game_frame - prev_game_frame
 
+        # plt.imshow(game_frame.reshape(80, 80), interpolation='nearest')
+        # plt.show()
         # Game validation safe kipping
         assert game_frame.size == self.PIXELS_NUM
 

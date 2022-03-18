@@ -16,7 +16,6 @@ import tensorflow as tf
 from src.experiments.experiment_1 import ModelExperiment1
 from src.experiments.experiment_2 import ModelExperiment2
 from src.experiments.experiment_3 import ModelExperiment3
-from src.experiments.experiment_4 import ModelExperiment4
 from src.game import BreakoutGame
 import logging
 import threading
@@ -28,35 +27,35 @@ if len(local_device_protos):
         print("Executing with device type {}, name {}".format(device.device_type, device.name))
 
 RESUME = False  # Resume execution from last point
-RENDER_TYPE = 'rgb_array'  # None | human | rgb_array
+RENDER_TYPE = 'human'  # None | human | rgb_array
 
 if __name__ == "__main__":
-    # threads = list()
-    # experiments = {
-    #     "1": ModelExperiment1,
-    #     "2": ModelExperiment2,
-    #     "3": ModelExperiment3,
-    #     "4": ModelExperiment4,
-    #
-    # }
-    # experiment_repetition = 1
-    #
-    # def thread_function(experiment, rep):
-    #     base_experiment = experiment(rep)
-    #     BreakoutGame(base_experiment, RESUME, RENDER_TYPE).play()
+#     threads = list()
+#     experiments = {
+#         "1": ModelExperiment1,
+#         "2": ModelExperiment2,
+#         "3": ModelExperiment3
+#
+#     }
+#     experiment_repetition = 1
+#
+#     def thread_function(experiment, rep):
+#         base_experiment = experiment(rep)
+#         BreakoutGame(base_experiment, RESUME, RENDER_TYPE).play()
+#
+#     for num, exp in experiments.items():
+#         # +1 because the count doesn't start at zero
+#         for repetition in range(1, experiment_repetition+1):
+#             logging.info("Main: create and start thread for exp {} and exec {}.", num, repetition)
+#             x = threading.Thread(target=thread_function, args=(exp, repetition))
+#             threads.append(x)
+#             x.start()
+#
+#     for index, thread in enumerate(threads):
+#         logging.info("Main: before joining thread %d.", index)
+#         thread.join()
+#         logging.info("Main : thread %d done", index)
 
-    # for num, exp in experiments.items():
-    #     # +1 because the count doesn't start at zero
-    #     for repetition in range(1, experiment_repetition+1):
-    #         logging.info("Main: create and start thread for exp {} and exec {}.", num, repetition)
-    #         x = threading.Thread(target=thread_function, args=(exp, repetition))
-    #         threads.append(x)
-    #         x.start()
-    #
-    # for index, thread in enumerate(threads):
-    #     logging.info("Main: before joining thread %d.", index)
-    #     thread.join()
-    #     logging.info("Main : thread %d done", index)
-
-    base_experiment = ModelExperiment3(1)
+    base_experiment = ModelExperiment1(1)
     BreakoutGame(base_experiment, RESUME, RENDER_TYPE).play()
+

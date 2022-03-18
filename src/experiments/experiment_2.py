@@ -1,6 +1,6 @@
 """
 Experiment 1
-Description:
+Description: Description: NN with 100 hidden units followed by 50 hidden units
 """
 from src.model import PolicyNetwork
 import tensorflow as tf
