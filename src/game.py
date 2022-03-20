@@ -1,9 +1,12 @@
 """
-Program to train an agent to play Atari Pong
+Program to train an agent to play Atari Breakout
 Solution based on:
     1. https://github.com/gameofdimension/policy-gradient-pong/blob/master/policy_gradient_pong.py
     2. https://github.com/omkarv/pong-from-pixels/blob/master/pong-from-pixels.py
     3. https://medium.com/swlh/policy-gradient-reinforcement-learning-with-keras-57ca6ed32555
+    4. https://github.com/philtabor/Youtube-Code-Repository/blob/master/ReinforcementLearning/PolicyGradient/reinforce/tensorflow2/main.py
+    5. https://github.com/drozzy/reinforce/blob/main/reinforce.py
+    6. https://github.com/thinkingparticle/deep_rl_pong_keras/blob/master/reinforcement_learning_pong_keras_policy_gradients.ipynb
 """
 import time
 
@@ -23,7 +26,7 @@ class BreakoutGame:
 
     # Game configuration
     FRAME_SKIP = 4  # Each n frames the play screen will be sampled
-    EPISODES = 10000  # Episodes to be played
+    EPISODES = 1001  # Episodes to be played
     PIXELS_NUM = 6400
 
     def __init__(self, policy_network, resume, render_type):
@@ -31,6 +34,7 @@ class BreakoutGame:
         self.__state_memory = []
         self.__action_memory = []
         self.__reward_memory = []
+        self.__point_memory = []
 
         # Initialize the game
         self.__env = gym.make(
@@ -39,10 +43,6 @@ class BreakoutGame:
             frameskip=self.FRAME_SKIP,  # frame skip/Amount of frames to wait for getting a frame sample
             render_mode=render_type     # None | human | rgb_array
         )
-        # self.__env = self.__env.unwrapped
-
-        # Policy gradient has high variance, seed for reproducability
-        # self.__env.seed(1)
 
         print("env.action_space", self.__env.action_space)
         print("env.meaning", self.__env.get_action_meanings())
@@ -50,7 +50,7 @@ class BreakoutGame:
         # Initialize the NN model
         self.__policy_network = policy_network
         self.__policy_network.set_action_space(self.ACTION_SPACE)
-        self.__policy_network.load(resume, self.PIXELS_NUM)
+        self.__policy_network.set_model(resume, self.PIXELS_NUM)
 
         # Reset the game prior starting (This will clean prior states)
         self.__reset()
@@ -60,7 +60,8 @@ class BreakoutGame:
 
         # A clean episode starts at zero so the first episode will be +1
         # We save completed episodes so the next episode will be +1
-        for i_episode in range(self.__policy_network.get_episode()+1, self.EPISODES):
+        # EPISODES+1 because we want to run the 1000 experiment
+        for i_episode in range(self.__policy_network.get_episode()+1, self.EPISODES+1):
             done = False
             # Restart the game and kick the ball
             self.__env.reset()
@@ -79,15 +80,18 @@ class BreakoutGame:
 
                 # 3. Interact with the environment by executing the action
                 new_game_frame, reward, done, game_state = self.__env.step(action)
+                # The reward is corrected by the amount of lives of the agent
+                # Point will keep track of the actual score of the game
+                point = reward
 
                 # 4. Add a negative reward by losing lives (In case it happened)
                 new_lives = game_state['lives']
-                if actual_lives != new_lives:
+                if actual_lives != new_lives and self.__policy_network.punish_agent:
                     reward = -1
                 actual_lives = new_lives
 
                 # 5. Store the state, value, action and reward taken in this step
-                self.__record_dynamics(game_frame, action, reward)
+                self.__record_dynamics(game_frame, action, reward, point)
 
                 # Update the actual game frame
                 game_frame = new_game_frame
@@ -102,6 +106,7 @@ class BreakoutGame:
                 self.__state_memory,
                 self.__action_memory,
                 self.__reward_memory,
+                self.__point_memory,
                 i_episode)
 
             # 6. Reset the Game dynamics for the next episode
@@ -111,17 +116,19 @@ class BreakoutGame:
             # https://groups.google.com/g/h5py/c/_a35vzQzRrg?pli=1
             gc.collect()
 
-    def __record_dynamics(self, game_frame, action, reward):
+    def __record_dynamics(self, game_frame, action, reward, point):
         """
         Store the sequence of state, actions and values for the actual episode
 
         :param game_frame: Game state
         :param action: Action taken
         :param reward: Reward perceived by the agent interaction
+        :param point: Points per episode
         """
         self.__state_memory.append(game_frame)
         self.__reward_memory.append(reward)
         self.__action_memory.append(action)
+        self.__point_memory.append(point)
 
     def __reset(self):
         """ Reset the game dynamic after each episode"""
@@ -129,17 +136,19 @@ class BreakoutGame:
         del self.__state_memory
         del self.__action_memory
         del self.__reward_memory
+        del self.__point_memory
 
         self.__state_memory = []
         self.__action_memory = []
         self.__reward_memory = []
+        self.__point_memory = []
 
     def __pre_process_image(self, game_frame, prev_game_frame):
         """
         Transform the original image game image into a less noise representation
         This will make easier the ball recognizing task
 
-        :param game_frame: 210x160x3 RGB image
+        :param game_frame: 210x160 grayscale image
         :param prev_game_frame: Previous image free
         :return: 6000 (75x80) 1D float vector
         """
