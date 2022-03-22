@@ -44,7 +44,7 @@ if __name__ == "__main__":
 
     def thread_function(experiment, rep):
         base_experiment = experiment(rep)
-        BreakoutGame(base_experiment, RESUME, RENDER_TYPE).play()
+        BreakoutGame(base_experiment, RESUME, RENDER_TYPE).train()
 
     for num, exp in experiments.items():
         # +1 because the count doesn't start at zero
@@ -58,7 +58,3 @@ if __name__ == "__main__":
         logging.info("Main: before joining thread %d.", index)
         thread.join()
         logging.info("Main : thread %d done", index)
-
-    # base_experiment = ModelExperiment4(1)
-    # BreakoutGame(base_experiment, RESUME, RENDER_TYPE).play()
-

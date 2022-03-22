@@ -268,7 +268,7 @@ class PolicyNetwork(tf.keras.Model):
         # Save the model by stages for latter review
         if episode % self.MODEL_CHECKPOINT_AT == 0 and episode != 0:
             model_name = path + str(episode) + '.h5'
-            print("Saving mode checkpoint at episode {} and path".format(episode, model_name))
+            print("Saving mode checkpoint at episode {} and path {}".format(episode, model_name))
             with h5py.File(model_name, mode='w') as f:
                 hdf5_format.save_model_to_hdf5(self.__model, f)
 

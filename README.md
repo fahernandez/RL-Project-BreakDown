@@ -4,9 +4,9 @@ The impact of the reward attribution strategy will be measured by the number of 
 The project will conclude with the strategy with the best average performance; thus, an adequate approach while designing these kinds of agents.
 
 ## Environment details
-1. Game: Atari Breakout ALE/Breakout-v5
+1. Game: Atari Breakout [ALE/Breakout-v5](https://gym.openai.com/envs/Breakout-v0/)
 2. Output: grayscale images.
-3. Frame Skip 4. Frame skip controls how many frames an action will be repeated. More detail [here]()
+3. Frame Skip 4. Frame skip controls how many frames an action will be repeated. More detail [here](https://www.ijcai.org/Proceedings/2018/0787.pdf)
 4. Lives per episode: 3
 5. Episodes per experiment 1000
 
@@ -73,44 +73,33 @@ strategy. Reward strategy:
    7. Adam Optimizer with a learning rate of 0.001
    8. L1/L2 regularization over the weights of 0.001.
    9. Loss:
-      1. 
+      1. The loss function was implemented following the REINFORCE Algorithm. More detail in the project report.
    
 # Requirements
+1. Install Python >= 3.8
+2. Install all library requirements on requirements.txt
+3. Optional (Install Cuda Support for faster execution)
 
-# How to run the experiments
-
-# How to see a single agent playing
+# How to use this project.
+1. Execute main.py to run all the experiments.
+2. Navigate on analysis.ipynb to see the analysis of the information shown in the reports.
+3. Execute play.py to see the best agent playing.
+4. Experiment results are stored in folder execution.
 
 # Acknowledgement
+The game is simulated through the Arcade Learning Environment [ALE], which uses the Stella [Stella] Atari emulator.
+
+1. [ALE]	MG Bellemare, Y Naddaf, J Veness, and M Bowling. "The arcade learning environment: An evaluation platform for general agents." Journal of Artificial Intelligence Research (2012). https://github.com/mgbellemare/Arcade-Learning-Environment
+2. [Stella]	Stella: A Multi-Platform Atari 2600 VCS emulator https://stella-emu.github.io/
 
 # Notes
 1. The environment and agent based setup was based on the recommended settings by [x,y](https://web.stanford.edu/class/psych209/Readings/MnihEtAlHassibis15NatureControlDeepRL.pdf
 ). Some minor details were made to adapt the experiment to the host environment.
 
-
-# Pending:
-1. Complete README
-2. Complete code to get results
-
-
-1. https://gym.openai.com/envs/Pong-v0/#stella
-
-[//]: # (# Install Room)
-[//]: # (1. http://www.atarimania.com/game-atari-2600-vcs-pong-sports_16597.html)
-[//]: # (2. Download image)
-[//]: # (3. ./venv/bien/ale-import-roms ./../../roms)
-
-# Reload requirements.txt
-/home/fabian/Documents/Nottingham/DesignIA/RL-Project-Pong/venv/bin/pip3 freeze > ~/Documents/Nottingham/DesignIA/RL-Project-Pong/requirements.txt
-
-# Install packages
-/home/fabian/Documents/Nottingham/DesignIA/Project/venv/bin/pip3 install tensorflow-gpu
-
-
-# Cuda package for TF
+# Troubleshooting
+## Install Cuda package for TF
 1. sudo apt install nvidia-cuda-toolkit
 2. Install Cuda https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html
-3. https://www.tensorflow.org/install/gpu
 
-# Solution to display drivers
+## Solution to display drivers
 1. https://askubuntu.com/questions/1352158/libgl-error-failed-to-load-drivers-iris-and-swrast-in-ubuntu-20-04

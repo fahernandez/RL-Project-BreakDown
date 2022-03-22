@@ -8,12 +8,10 @@ Solution based on:
     5. https://github.com/drozzy/reinforce/blob/main/reinforce.py
     6. https://github.com/thinkingparticle/deep_rl_pong_keras/blob/master/reinforcement_learning_pong_keras_policy_gradients.ipynb
 """
-import time
-
 import numpy as np
 import gym
 import gc
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 
 class BreakoutGame:
@@ -39,9 +37,9 @@ class BreakoutGame:
         # Initialize the game
         self.__env = gym.make(
             'ALE/Breakout-v5',
-            obs_type='grayscale',       # ram | rgb | grayscale/Observation return type
+            obs_type='grayscale',  # ram | rgb | grayscale/Observation return type
             frameskip=self.FRAME_SKIP,  # frame skip/Amount of frames to wait for getting a frame sample
-            render_mode=render_type     # None | human | rgb_array
+            render_mode=render_type  # None | human | rgb_array
         )
 
         print("env.action_space", self.__env.action_space)
@@ -56,12 +54,38 @@ class BreakoutGame:
         self.__reset()
 
     def play(self):
+        """
+        Just play the game using the provided image.
+        The image should be already trained by running the experiments
+        """
+        prev_game_frame = np.zeros((self.PIXELS_NUM,))
+        while True:
+            done = False
+            # Restart the game and kick the ball
+            self.__env.reset()
+            # Action 1 is fire on the Breakout game
+            game_frame, _, _, game_state = self.__env.step(1)
+
+            while not done:
+                # 1. Preprocess the Image to reduce noise and dimensionality
+                game_frame, prev_game_frame = self.__pre_process_image(game_frame, prev_game_frame)
+
+                # 2. Produce an action following the Policy function
+                action = self.__policy_network.produce_action(game_frame)
+
+                # 3. Interact with the environment by executing the action
+                game_frame, _, done, _ = self.__env.step(action)
+
+    def train(self):
+        """
+        Train the Policy Gradient NN to play the game
+        """
         prev_game_frame = np.zeros((self.PIXELS_NUM,))  # used in computing the difference frame
 
         # A clean episode starts at zero so the first episode will be +1
         # We save completed episodes so the next episode will be +1
         # EPISODES+1 because we want to run the 1000 experiment
-        for i_episode in range(self.__policy_network.get_episode()+1, self.EPISODES+1):
+        for i_episode in range(self.__policy_network.get_episode() + 1, self.EPISODES + 1):
             done = False
             # Restart the game and kick the ball
             self.__env.reset()
